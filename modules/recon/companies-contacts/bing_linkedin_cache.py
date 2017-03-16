@@ -33,8 +33,8 @@ class Module(BaseModule):
         subdomain_list = [''] if not subdomains else [x.strip()+'.' for x in subdomains.split(',')]
         for subdomain in subdomain_list:
             base_query = [
-                "site:\"%slinkedin.com/in/\" %s" % (subdomain, company),
-                "site:%slinkedin.com -jobs %s" % (subdomain, company),
+                "site:\"%slinkedin.com/in/\" \"%s\"" % (subdomain, company),
+                "site:%slinkedin.com -jobs \"%s\"" % (subdomain, company),
             ]
             for query in base_query:
                 #self.verbose("Now sending this query: '%s'" % query)

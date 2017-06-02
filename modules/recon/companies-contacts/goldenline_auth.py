@@ -37,6 +37,8 @@ class Module(BaseModule):
         """
         url = 'https://www.goldenline.pl/aplikacja/hal-browser/'
         response = s.get(url, allow_redirects=False)
+        if response.status_code != 302:
+            return
 
         # hal-browser/connect
         url = self.get_goldenline_url(response.headers.get('Location'))
@@ -60,12 +62,21 @@ class Module(BaseModule):
             'Content-Type': 'application/x-www-form-urlencoded'
         }
         response = s.post(url, data, headers=headers, allow_redirects=True)
-        return re.findall('Authorization: Bearer (.*?)<', response.content)[0]
+        if re.findall('fos_oauth_server_authorize',response.content).__len__() != 0:
+            print 'Permission denied to Hal Browser. Go to website: https://www.goldenline.pl/aplikacja/hal-browser/ and give permission.'
+            return
+        token_list = re.findall('Authorization: Bearer (.*?)<', response.content)
+        if token_list.__len__() == 0:
+            return
+
+        return token_list[0]
 
     def module_run(self, companies):
         # use recon/companies-contacts/goldenline_auth
         s = requests.Session()
         access_token = self.get_goldenline_access_token(s)
+        if access_token == None:
+            return
         # for company in companies:
         url = 'https://www.goldenline.pl/firmy/szukaj/?q={company}'
         for company in companies:

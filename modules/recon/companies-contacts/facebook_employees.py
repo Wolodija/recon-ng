@@ -17,7 +17,7 @@ class Module(BaseModule):
 		xs = self.keys.get('facebook_xs_cookie')
 		self.c_user = self.keys.get('facebook_c_user_cookie')
 		self.cookie = {'c_user': self.c_user, 'xs': xs}
-		self.pattern = '(?<="_gll"><div>).*?(?=</a></div)'
+		self.pattern = '(?<=_gll").*?(?=</a></div)'
 		self.pattern2 = '(?<="_gll"><div>).*?(?=<\\\\/a><\\\\/div)'
 		self.cursor_pattern_2 = '(?<=;cursor\\\\\&quot;\:\\\\\&quot;)(.*?)(?=\\\\\&quot;)'
 		self.cursor_pattern_1 = '(?<=\{cursor\:")(.*?)(?="\,page_)'
@@ -110,7 +110,6 @@ class Module(BaseModule):
 	def get_first(self, company_id):
 		r = requests.get('https://www.facebook.com/search/' + company_id + '/employees', cookies=self.cookie)
 		cursor_new = self.get_regexp_by_pattern(r.text, self.cursor_pattern_1)
-		print self.get_regexp_by_pattern(r.text, self.pattern)
 		return cursor_new, self.get_regexp_by_pattern(r.text, self.pattern)
 
 	def get_regexp_by_pattern(self, request, pattern):

@@ -91,7 +91,7 @@ class Module(BaseModule):
 			answer = input("select company (0 - {}): ".format(len(possible_companies)))
 		except:
 			answer = len(possible_companies)
-		if answer not in xrange(len(possible_companies)):
+		if answer not in range(len(possible_companies)):
 			answer = len(possible_companies)
 		if answer == len(possible_companies):
 			return

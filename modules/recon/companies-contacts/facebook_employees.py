@@ -3,6 +3,7 @@ import requests
 import re
 import base64
 import time
+from urllib import quote
 TIMEWAIT = 0.25
 class Module(BaseModule):
 	meta = {
@@ -10,7 +11,7 @@ class Module(BaseModule):
 		'author': 'Coenova123',
 		'description': 'Get employees selected company from facebook. Updates the \'contacts\' table with the results.',
 		'required_keys': ['facebook_c_user_cookie', 'facebook_xs_cookie'],
-		'query': 'SELECT DISTINCT company FROM companies WHERE company IS NOT NULL',
+		'query': 'SELECT DISTINCT company FROM companies WHERE company IS NOT NULL'
 	}
 	def module_run(self, company_name):
 		xs = self.keys.get('facebook_xs_cookie')
@@ -41,7 +42,7 @@ class Module(BaseModule):
 		self.cursor, data = self.get_first(company_id)
 		new_url = self.get_regexp_by_pattern(data, self.url_pattern).split('\n')
 		new_employees = self.get_regexp_by_pattern(data, self.employee_pattern).encode('utf-8').split('\n')
-		for i in xrange(len(new_employees)):
+		for i in range(len(new_employees)):
 			self.add_profiles(username=new_employees[i], url=new_url[i])
 			self.add_conact_by_url(new_url[i])
 		iterator = 1
@@ -51,8 +52,9 @@ class Module(BaseModule):
 			new_url = self.get_regexp_by_pattern(data.replace('\/', '/'), self.url_pattern).split('\n')
 			new_employees = self.get_regexp_by_pattern(data.replace('\/', '/'), self.employee_pattern).encode('utf-8').split('\n')
 			for i in xrange(len(new_employees)):
-				self.add_conact_by_url(new_url[i])
-				self.add_profiles(username=new_employees[i], url=new_url[i])
+				if new_employees[i] and new_url[i]:
+					self.add_conact_by_url(new_url[i])
+					self.add_profiles(username=new_employees[i], url=new_url[i])
 			iterator += 1
 			if len(new_url) == 1:
 				break
@@ -64,14 +66,19 @@ class Module(BaseModule):
 		url = self.get_regexp_by_pattern(r.text, '(?<=addressLocality":").*?(?=")')
 		try:
 			first_name, last_name = name_surname.split(" ")
+			middle_name = ""
 		except ValueError:
-			first_name, last_name = name_surname.split("-")[0], name_surname.split("-")[-1]
+			try:
+				first_name, middle_name, last_name = name_surname.split(" ")
+			except ValueError:
+				first_name, last_name = name_surname.split(" ")[0], name_surname.split(" ")[-1]
+				middle_name = "?"
 		try:
 			region, country = url.split(", ")
 		except ValueError:
 			region = ""
 			country = url
-		self.add_contacts(first_name=first_name, last_name=last_name, title=job_title, region=region, country=country)
+		self.add_contacts(first_name=first_name, middle_name=middle_name, last_name=last_name, title=job_title, region=region, country=country)
 		time.sleep(TIMEWAIT)
 
 	def get_company_id(self, company_name):
@@ -110,7 +117,7 @@ class Module(BaseModule):
 
 	def get_next(self, company_id, company_name, page_number):
 		encoded = base64.b64encode(
-			'["People+who+work+at+",{"text":"' + company_name + '","uid":' + company_id + ',"type":"employer"}]')
+			'["People+who+work+at+",{"text":"' + quote(company_name.encode('utf-8')).replace("%", "\u0025") + '","uid":' + company_id + ',"type":"employer"}]')
 		if encoded[-2] == '=':
 			encoded = encoded[:-2]
 		elif encoded[-1] == '=':

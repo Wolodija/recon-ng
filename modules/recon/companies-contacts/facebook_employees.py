@@ -32,7 +32,10 @@ class Module(BaseModule):
 
 		if not len(company_list):
 			return
-		company_name, company_id = self.id_selector(company_list)
+		try:
+			company_name, company_id = self.id_selector(company_list)
+		except TypeError:
+			return
 		if not company_name:
 			return
 		self.cursor, data = self.get_first(company_id)
@@ -62,7 +65,7 @@ class Module(BaseModule):
 		try:
 			first_name, last_name = name_surname.split(" ")
 		except ValueError:
-			first_name, middle_name, last_name = name_surname.split(" ")
+			first_name, last_name = name_surname.split("-")[0], name_surname.split("-")[-1]
 		try:
 			region, country = url.split(", ")
 		except ValueError:

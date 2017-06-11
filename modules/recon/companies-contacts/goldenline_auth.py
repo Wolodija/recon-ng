@@ -1,6 +1,10 @@
+from mechanize._response import response_seek_wrapper
+
 from recon.core.module import BaseModule
 import re
 import requests
+import webbrowser
+
 # ToDo: Make more intelligent redirecting (check status code and later location)
 # ToDo: Captcha
 # ToDo: Tests
@@ -28,6 +32,21 @@ class Module(BaseModule):
         else:
             return 'https://www.goldenline.pl' + url
 
+    def resolve_captcha(self, response):
+        url = response.headers.get('location')
+        if "/narzedzia/captcha" in url:
+            webbrowser.open("https://www.goldenline.pl/narzedzia/captcha")
+            # wait for end
+            raw_input("Resolve captcha and press Enter to continue...")
+            return True
+        return False
+
+    def check_response(self, response):
+        code = response.status_code
+        if code != 302 and code != 200:
+            return False
+        return True
+
     def get_goldenline_access_token(self, s):
         """
         Get goldenline access token by authenticating to api hal-browser
@@ -37,6 +56,11 @@ class Module(BaseModule):
         """
         url = 'https://www.goldenline.pl/aplikacja/hal-browser/'
         response = s.get(url, allow_redirects=False)
+        if not self.check_response(response):
+            if self.resolve_captcha(response):
+                response = s.get(url, allow_redirects=False)
+            else:
+                return
 
         # hal-browser/connect
         url = self.get_goldenline_url(response.headers.get('Location'))
@@ -45,9 +69,12 @@ class Module(BaseModule):
         # oauth
         url = self.get_goldenline_url(response.headers.get('Location'))
         response = s.get(url, allow_redirects=False)
+
         #login
         url = self.get_goldenline_url(response.headers.get('Location'))
         response = s.get(url, allow_redirects=False)
+        if not self.check_response(s, response):
+            return
 
         username = self.get_key('goldenline_username')
         password = self.get_key('goldenline_password')
@@ -60,12 +87,22 @@ class Module(BaseModule):
             'Content-Type': 'application/x-www-form-urlencoded'
         }
         response = s.post(url, data, headers=headers, allow_redirects=True)
-        return re.findall('Authorization: Bearer (.*?)<', response.content)[0]
+
+        if re.findall('fos_oauth_server_authorize',response.content).__len__() != 0:
+            print 'Permission denied. Go to website: https://www.goldenline.pl/aplikacja/hal-browser/ and give permission.'
+            return
+        token_list = re.findall('Authorization: Bearer (.*?)<', response.content)
+        if token_list.__len__() == 0:
+            return
+
+        return token_list[0]
 
     def module_run(self, companies):
         # use recon/companies-contacts/goldenline_auth
         s = requests.Session()
         access_token = self.get_goldenline_access_token(s)
+        if access_token == None:
+            return
         # for company in companies:
         url = 'https://www.goldenline.pl/firmy/szukaj/?q={company}'
         for company in companies:

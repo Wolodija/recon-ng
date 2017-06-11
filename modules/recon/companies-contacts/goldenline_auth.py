@@ -1,3 +1,5 @@
+import time
+
 from mechanize._response import response_seek_wrapper
 
 from recon.core.module import BaseModule
@@ -5,8 +7,6 @@ import re
 import requests
 import webbrowser
 
-# ToDo: Make more intelligent redirecting (check status code and later location)
-# ToDo: Captcha
 # ToDo: Tests
 # ToDo: Refactor: mainly split on multiple functions
 
@@ -32,9 +32,9 @@ class Module(BaseModule):
         else:
             return 'https://www.goldenline.pl' + url
 
-    def resolve_captcha(self, response):
+    def resolve_captcha(self, response, force=False):
         url = response.headers.get('location')
-        if "/narzedzia/captcha" in url:
+        if force or "/narzedzia/captcha" in url:
             webbrowser.open("https://www.goldenline.pl/narzedzia/captcha")
             # wait for end
             raw_input("Resolve captcha and press Enter to continue...")
@@ -73,7 +73,7 @@ class Module(BaseModule):
         #login
         url = self.get_goldenline_url(response.headers.get('Location'))
         response = s.get(url, allow_redirects=False)
-        if not self.check_response(s, response):
+        if not self.check_response(response):
             return
 
         username = self.get_key('goldenline_username')
@@ -105,6 +105,7 @@ class Module(BaseModule):
             return
         # for company in companies:
         url = 'https://www.goldenline.pl/firmy/szukaj/?q={company}'
+        company_ids = []
         for company in companies:
             response = s.get(url.format(company=company))
             if not response.ok:
@@ -112,7 +113,6 @@ class Module(BaseModule):
 
             possible_companies = re.finditer('<td class="firm">.*?href="(.*?)".*?>(.*?)<.*?</td>', response.content, re.MULTILINE|re.DOTALL)
 
-            company_ids = []
             for details in possible_companies:
                 link, name = details.groups()
                 if company.lower() not in name.lower():
@@ -140,8 +140,17 @@ class Module(BaseModule):
             while page <= max_page:
                 page += 1
                 response = requests.get(url.format(company_id=company_id, page=page), headers=headers)
-                results = response.json()
-                max_page = int(re.findall('page=(\d+)', results.get('_links', {}).get('last').get('href'))[0])
+                try:
+                    results = response.json()
+                except Exception as a:
+                    page += 1 # Ommit page which is blocked
+                    time.sleep(10)
+                    self.resolve_captcha(response, True)
+                    response = requests.get(url.format(company_id=company_id, page=page), headers=headers)
+                    results = response.json()
+                    print("a")
+                if results.get('_links', {}).get('last'):
+                    max_page = int(re.findall('page=(\d+)', results.get('_links', {}).get('last').get('href'))[0])
                 employees = results.get('_embedded', {}).get('employee', [])
                 for employee in employees:
                     self.add_contacts(first_name=employee.get('name'), last_name=employee.get('surname'),

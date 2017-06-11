@@ -59,7 +59,10 @@ class Module(BaseModule):
 		name_surname = self.get_regexp_by_pattern(r.text, '(?<="Person","name":").*?(?=")')
 		job_title = self.get_regexp_by_pattern(r.text, '(?<=jobTitle":").*?(?=")')
 		url = self.get_regexp_by_pattern(r.text, '(?<=addressLocality":").*?(?=")')
-		first_name, last_name = name_surname.split(" ")
+		try:
+			first_name, last_name = name_surname.split(" ")
+		except ValueError:
+			first_name, middle_name, last_name = name_surname.split(" ")
 		try:
 			region, country = url.split(", ")
 		except ValueError:
